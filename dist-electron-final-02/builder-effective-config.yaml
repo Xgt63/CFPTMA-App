@@ -1,0 +1,49 @@
+directories:
+  output: dist-electron-final-02
+  buildResources: assets
+appId: com.employee-evaluation-system
+productName: CFTP - Système de gestion des évaluations
+files:
+  - filter:
+      - dist/**/*
+      - main.js
+      - electron/**/*
+      - build/icon.ico
+      - assets/**/*
+      - node_modules/exceljs/**/*
+extraResources:
+  - from: assets/icon.ico
+    to: assets/icon.ico
+  - from: build/icon.ico
+    to: build/icon.ico
+win:
+  target: nsis
+  icon: assets/icon.ico
+  requestedExecutionLevel: asInvoker
+  signAndEditExecutable: false
+  verifyUpdateCodeSignature: false
+mac:
+  target: dmg
+  hardenedRuntime: false
+  gatekeeperAssess: false
+linux:
+  target: AppImage
+forceCodeSigning: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerHeaderIcon: assets/icon.ico
+  shortcutName: Employee Evaluation System
+  runAfterFinish: true
+  menuCategory: CFPT Ivato
+  artifactName: ${productName} Setup ${version}.${ext}
+  deleteAppDataOnUninstall: false
+publish: null
+buildDependenciesFromSource: false
+nodeGypRebuild: false
+npmRebuild: false
+electronVersion: 28.3.3

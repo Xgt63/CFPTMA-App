@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Import Excel Page Scrolling</title>
+    <style>
+        html, body {
+            height: auto;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .main-container {
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .test-page {
+            min-height: 150vh;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #7c2d12 100%);
+            padding: 20px;
+        }
+        
+        .content-box {
+            background: white;
+            margin: 20px auto;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 800px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin: 40px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border-left: 4px solid #4B4BFF;
+        }
+        
+        .button {
+            background-color: #4B4BFF;
+            color: white;
+            border-radius: 8px;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        
+        .button:hover {
+            background-color: #3838CC;
+        }
+        
+        .scroll-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scroll-indicator" id="scrollIndicator">
+        Scroll: 0px
+    </div>
+    
+    <div class="main-container">
+        <div class="test-page">
+            <div class="content-box">
+                <h1>🚨 Test de Correction - Page d'Import Excel</h1>
+                <p><strong>Objectif :</strong> Vérifier que le défilement fonctionne correctement après les corrections.</p>
+                
+                <div class="test-section">
+                    <h2>✅ Points Corrigés</h2>
+                    <ul>
+                        <li><strong>Suppression de la bande blanche :</strong> Retiré le `fixed inset-0`</li>
+                        <li><strong>Défilement autorisé :</strong> CSS global ajusté (html, body { overflow-y: auto })</li>
+                        <li><strong>Conteneur ajusté :</strong> `min-height: 100vh` au lieu de `height: 100vh`</li>
+                        <li><strong>Bouton Retour :</strong> Repositionné et fonctionnel avec `onClose`</li>
+                    </ul>
+                </div>
+                
+                <div class="test-section">
+                    <h2>🎯 Tests à Effectuer</h2>
+                    <ol>
+                        <li>La page doit défiler de haut en bas (ce test scroll fonctionne)</li>
+                        <li>Aucune bande blanche ne doit apparaître en haut</li>
+                        <li>Le bouton "Retour" doit fermer la modale</li>
+                        <li>Tous les éléments doivent être visibles</li>
+                    </ol>
+                </div>
+                
+                <div class="test-section">
+                    <h2>📋 Instructions</h2>
+                    <p>1. Ouvrez l'application React avec <code>npm run dev</code></p>
+                    <p>2. Allez dans "Gestion du Personnel"</p>
+                    <p>3. Cliquez sur "Importer Excel"</p>
+                    <p>4. Vérifiez le défilement vertical</p>
+                    <p>5. Testez le bouton "← Retour" (doit fermer la modale)</p>
+                </div>
+                
+                <div class="test-section">
+                    <h2>🔧 Modifications Techniques</h2>
+                    <h3>CSS Global (index.css)</h3>
+                    <pre>html, body {
+  height: auto;
+  overflow-y: auto;
+}
+
+.main-container {
+  min-height: 100vh;
+  overflow-y: auto;
+}</pre>
+                    
+                    <h3>Composant ExcelImport</h3>
+                    <pre>// Avant: fixed inset-0 (problème)
+// Après: min-h-screen (solution)
+
+&lt;div className="min-h-screen bg-gradient-to-br..."&gt;</pre>
+                    
+                    <h3>Usage dans Staff.tsx</h3>
+                    <pre>&lt;ExcelImport 
+  onImportComplete={handleExcelImportComplete} 
+  onClose={() =&gt; setShowExcelImport(false)}
+/&gt;</pre>
+                </div>
+                
+                <div class="test-section">
+                    <h2>🎉 Résultat Attendu</h2>
+                    <ul>
+                        <li>✅ Page scrollable sans restriction</li>
+                        <li>✅ Pas de bande blanche en haut</li>
+                        <li>✅ Bouton "Retour" fonctionnel</li>
+                        <li>✅ Contenu accessible et visible</li>
+                    </ul>
+                </div>
+                
+                <div style="text-align: center; margin-top: 40px;">
+                    <button class="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                        ↑ Retour en haut
+                    </button>
+                    <button class="button" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})">
+                        ↓ Aller en bas
+                    </button>
+                </div>
+                
+                <!-- Contenu supplémentaire pour tester le scroll -->
+                <div class="test-section">
+                    <h2>📏 Zone de Test Étendue</h2>
+                    <p>Cette section est là pour tester le défilement. Vous devriez pouvoir faire défiler cette page de haut en bas sans problème.</p>
+                    <div style="height: 200px; background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <p style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Zone de test visuel - Défilement OK ✅</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Indicateur de scroll
+        window.addEventListener('scroll', function() {
+            const scrollY = Math.round(window.scrollY);
+            document.getElementById('scrollIndicator').textContent = `Scroll: ${scrollY}px`;
+        });
+        
+        // Test de performance
+        console.log('🧪 Page de test chargée - Vérification du scroll...');
+        console.log('📏 Hauteur de la page:', document.body.scrollHeight + 'px');
+        console.log('📱 Hauteur de la fenêtre:', window.innerHeight + 'px');
+    </script>
+</body>
+</html>

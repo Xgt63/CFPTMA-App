@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test du système d'importation Excel intelligent</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #0011ef, #ff05f2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #0011ef;
+            background-color: #f8f9ff;
+        }
+        h1 {
+            background: linear-gradient(135deg, #0011ef, #ff05f2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #e8f5e8;
+            border: 1px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test du système d'importation Excel intelligent</h1>
+        
+        <div class="section">
+            <h2>📊 Génération de fichiers de test</h2>
+            <p>Créez des fichiers Excel compatibles avec le format d'export existant :</p>
+            
+            <button onclick="generateCompatibleExcel()">📋 Générer fichier Excel compatible (3 feuilles)</button>
+            <button onclick="generatePersonnelOnly()">👥 Générer Personnel seulement</button>
+            <button onclick="generateEvaluationsOnly()">📊 Générer Évaluations seulement</button>
+            <button onclick="generateThemesOnly()">🎯 Générer Thèmes seulement</button>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Test de détection automatique</h2>
+            <p>Ces fichiers testent la robustesse du système :</p>
+            
+            <button onclick="generateMixedOrderColumns()">🔀 Colonnes dans désordre</button>
+            <button onclick="generateVariantColumnNames()">🏷️ Noms de colonnes variés</button>
+            <button onclick="generateMultiLingualHeaders()">🌐 En-têtes multilingues</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'success') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'test-result';
+            div.innerHTML = `<strong>${type === 'success' ? '✅' : '❌'}</strong> ${message}`;
+            if (type === 'error') {
+                div.style.backgroundColor = '#ffeee8';
+                div.style.borderColor = '#f44336';
+            }
+            results.appendChild(div);
+        }
+
+        // 📋 Générer un fichier Excel compatible avec le format d'export existant
+        function generateCompatibleExcel() {
+            const workbook = XLSX.utils.book_new();
+            
+            // 👥 Feuille Personnel (format exact de l'export)
+            const personnelData = [
+                ['ID', 'Matricule', 'Prénom', 'Nom', 'Poste', 'Email', 'Téléphone', 'Établissement', 'Année Formation', 'Date de création'],
+                [1, 'MAT2024001', 'Jean', 'Dupont', 'Manager', 'jean.dupont@cfp-ivato.mg', '0320123456', 'Centre Principal', '2024', '2024-01-15T09:00:00.000Z'],
+                [2, 'MAT2024002', 'Marie', 'Rakoto', 'Formateur', 'marie.rakoto@cfp-ivato.mg', '0321234567', 'Centre Annexe', '2024', '2024-01-20T10:30:00.000Z'],
+                [3, 'MAT2024003', 'Paul', 'Andry', 'Coordinateur', 'paul.andry@cfp-ivato.mg', '0322345678', 'Centre Principal', '2023', '2023-12-10T14:15:00.000Z']
+            ];
+            const personnelSheet = XLSX.utils.aoa_to_sheet(personnelData);
+            XLSX.utils.book_append_sheet(workbook, personnelSheet, 'Personnel');
+            
+            // 📊 Feuille Évaluations (format complet)
+            const evaluationData = [
+                [
+                    'ID', 'Staff ID', 'Prénom', 'Nom', 'Date évaluation', 'Thème formation',
+                    'Acquisition compétences', 'Développement personnel', 'Clarté cours', 'Théorie/Pratique',
+                    'Adéquation programme', 'Cas pratiques', 'Objectifs atteints', 'Connaissances adaptées',
+                    'Support pédagogique', 'Techniques utilisées', 'Présentation',
+                    'Conditions logistiques', 'Rythme', 'Ponctualité', 'Assiduité',
+                    'Esprit équipe', 'Motivation', 'Communication sociable', 'Communication générale',
+                    'Aptitude échanges', 'Curiosité', 'Initiative', 'Responsabilité',
+                    'Analyse critique', 'Exécution travail', 'Compréhension directives', 'Qualité travail', 'Maîtrise sujet',
+                    'Score recommandation', 'Justifications', 'Date de création'
+                ],
+                [
+                    1, 1, 'Jean', 'Dupont', '2024-01-15', 'Leadership Management',
+                    4, 5, 4, 3, 4, 5, 4, 4, 5, 4, 5, 4, 4, 5, 5,
+                    4, 5, 4, 4, 5, 4, 5, 4, 4, 4, 5, 4, 4,
+                    5, 'Excellent participant, très impliqué', '2024-01-15T16:00:00.000Z'
+                ],
+                [
+                    2, 2, 'Marie', 'Rakoto', '2024-01-20', 'Communication Efficace',
+                    5, 4, 5, 4, 3, 4, 5, 4, 4, 5, 4, 5, 4, 4, 5,
+                    5, 4, 5, 5, 4, 5, 4, 5, 5, 5, 4, 5, 5,
+                    4, 'Très bonne maîtrise des techniques de communication', '2024-01-20T17:30:00.000Z'
+                ]
+            ];
+            const evalSheet = XLSX.utils.aoa_to_sheet(evaluationData);
+            XLSX.utils.book_append_sheet(workbook, evalSheet, 'Évaluations');
+            
+            // 🎯 Feuille Thèmes Formation
+            const themesData = [
+                ['ID', 'Nom', 'Description', 'Date de création'],
+                [1, 'Leadership Management', 'Formation complète sur les techniques de leadership et management d\'équipe', '2024-01-01T08:00:00.000Z'],
+                [2, 'Communication Efficace', 'Développement des compétences en communication interpersonnelle et professionnelle', '2024-01-01T08:00:00.000Z'],
+                [3, 'Gestion de Projet', 'Méthodologies et outils pour une gestion de projets efficace', '2024-01-01T08:00:00.000Z'],
+                [4, 'Innovation & Créativité', 'Stimuler l\'innovation et la créativité dans l\'environnement professionnel', '2024-01-01T08:00:00.000Z']
+            ];
+            const themesSheet = XLSX.utils.aoa_to_sheet(themesData);
+            XLSX.utils.book_append_sheet(workbook, themesSheet, 'Thèmes Formation');
+            
+            // Télécharger le fichier
+            XLSX.writeFile(workbook, 'CFP-Ivato-Format-Compatible.xlsx');
+            addResult('Fichier Excel compatible généré : CFP-Ivato-Format-Compatible.xlsx (3 feuilles)');
+        }
+
+        // 👥 Générer Personnel seulement
+        function generatePersonnelOnly() {
+            const workbook = XLSX.utils.book_new();
+            const data = [
+                ['Matricule', 'Prénom', 'Nom de famille', 'Fonction', 'Email', 'Téléphone', 'Établissement', 'Année', 'Date'],
+                ['EMP001', 'Hery', 'Rasoamanarivo', 'Directeur', 'hery.raso@cfp.mg', '0331122334', 'Siège Social', '2024', '2024-02-01'],
+                ['EMP002', 'Naina', 'Razafy', 'Secrétaire', 'naina.razafy@cfp.mg', '0332233445', 'Centre Nord', '2024', '2024-02-02'],
+                ['EMP003', 'Koto', 'Andriamampionona', 'Formateur', 'koto.andria@cfp.mg', '0333344556', 'Centre Sud', '2023', '2024-01-30']
+            ];
+            const sheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'Staff Members');
+            
+            XLSX.writeFile(workbook, 'Personnel-Only-Test.xlsx');
+            addResult('Fichier Personnel généré : Personnel-Only-Test.xlsx');
+        }
+
+        // 📊 Générer Évaluations seulement
+        function generateEvaluationsOnly() {
+            const workbook = XLSX.utils.book_new();
+            const data = [
+                ['Nom', 'Prénom', 'Formation', 'Note Communication', 'Note Leadership', 'Note Technique', 'Recommandation', 'Observations'],
+                ['Razafy', 'Naina', 'Communication Professionnelle', 4, 3, 4, 4, 'Bonne participation active'],
+                ['Andria', 'Koto', 'Pédagogie Moderne', 5, 4, 5, 5, 'Excellence dans tous les domaines'],
+                ['Raso', 'Hery', 'Management Stratégique', 3, 5, 3, 4, 'Très bon leader naturel']
+            ];
+            const sheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'Evaluation Results');
+            
+            XLSX.writeFile(workbook, 'Evaluations-Only-Test.xlsx');
+            addResult('Fichier Évaluations généré : Evaluations-Only-Test.xlsx');
+        }
+
+        // 🎯 Générer Thèmes seulement
+        function generateThemesOnly() {
+            const workbook = XLSX.utils.book_new();
+            const data = [
+                ['Intitulé', 'Détails'],
+                ['Formation Digitale', 'Maîtrise des outils numériques pour l\'enseignement'],
+                ['Sécurité au Travail', 'Prévention des risques et sécurité en milieu professionnel'],
+                ['Développement Durable', 'Sensibilisation aux enjeux environnementaux'],
+                ['Entrepreneuriat', 'Création et gestion d\'entreprise pour formateurs']
+            ];
+            const sheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'Formation Courses');
+            
+            XLSX.writeFile(workbook, 'Themes-Only-Test.xlsx');
+            addResult('Fichier Thèmes généré : Themes-Only-Test.xlsx');
+        }
+
+        // 🔀 Générer colonnes dans désordre
+        function generateMixedOrderColumns() {
+            const workbook = XLSX.utils.book_new();
+            const data = [
+                ['Email', 'Nom', 'Téléphone', 'Prénom', 'Poste', 'Matricule', 'Établissement'],
+                ['test1@cfp.mg', 'Rakotomalala', '0334455667', 'Fidy', 'Assistant', 'AST001', 'Centre Est'],
+                ['test2@cfp.mg', 'Raharison', '0335566778', 'Vola', 'Technicien', 'TEC001', 'Centre Ouest']
+            ];
+            const sheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'Employés');
+            
+            XLSX.writeFile(workbook, 'Mixed-Order-Columns.xlsx');
+            addResult('Fichier colonnes mélangées généré : Mixed-Order-Columns.xlsx');
+        }
+
+        // 🏷️ Générer noms de colonnes variés
+        function generateVariantColumnNames() {
+            const workbook = XLSX.utils.book_new();
+            const data = [
+                ['Employee Number', 'First Name', 'Last Name', 'Job Title', 'E-mail', 'Phone Number', 'Department', 'Year'],
+                ['VAR001', 'Michael', 'Johnson', 'Consultant', 'michael.j@cfp.mg', '0336677889', 'Training', '2024'],
+                ['VAR002', 'Sarah', 'Williams', 'Coordinator', 'sarah.w@cfp.mg', '0337788990', 'Administration', '2023']
+            ];
+            const sheet = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'Team');
+            
+            XLSX.writeFile(workbook, 'Variant-Column-Names.xlsx');
+            addResult('Fichier noms variés généré : Variant-Column-Names.xlsx');
+        }
+
+        // 🌐 Générer en-têtes multilingues
+        function generateMultiLingualHeaders() {
+            const workbook = XLSX.utils.book_new();
+            const personnelData = [
+                ['ID', 'Badge', 'Anarana', 'Fanampin\'anarana', 'Asa', 'Email', 'Finday', 'Toerana', 'Taona'],
+                [1, 'MLG001', 'Rabe', 'Andriamanalina', 'Mpampianatra', 'rabe@cfp.mg', '0338899001', 'Ivato', '2024'],
+                [2, 'MLG002', 'Noro', 'Razanajatovo', 'Mpanatanteraka', 'noro@cfp.mg', '0339900112', 'Antsirabe', '2024']
+            ];
+            const personnelSheet = XLSX.utils.aoa_to_sheet(personnelData);
+            XLSX.utils.book_append_sheet(workbook, personnelSheet, 'Mpiasa');
+            
+            const themeData = [
+                ['Title', 'Description'],
+                ['Fitantanana Orinasa', 'Formation complète sur la gestion d\'entreprise'],
+                ['Fifandraisana Mahomby', 'Techniques de communication efficace en milieu professionnel']
+            ];
+            const themeSheet = XLSX.utils.aoa_to_sheet(themeData);
+            XLSX.utils.book_append_sheet(workbook, themeSheet, 'Lohahevitra');
+            
+            XLSX.writeFile(workbook, 'MultiLingual-Headers.xlsx');
+            addResult('Fichier multilingue généré : MultiLingual-Headers.xlsx');
+        }
+
+        // Message d'accueil
+        window.addEventListener('load', function() {
+            addResult('🚀 Générateur de tests Excel intelligent prêt ! Ces fichiers testeront la robustesse du système d\'importation.');
+        });
+    </script>
+</body>
+</html>

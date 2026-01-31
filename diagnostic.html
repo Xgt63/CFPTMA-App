@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic CFPT - Système d'Évaluation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        button {
+            background: #0011ef;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0009cc; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Diagnostic CFPT - Système d'Évaluation</h1>
+        
+        <div class="section" id="auth-status">
+            <h2>🔐 État de l'authentification</h2>
+            <div id="auth-info">Chargement...</div>
+        </div>
+
+        <div class="section" id="data-status">
+            <h2>💾 État des données locales</h2>
+            <div id="data-info">Chargement...</div>
+        </div>
+
+        <div class="section" id="actions">
+            <h2>🛠️ Actions de diagnostic</h2>
+            <button onclick="createDefaultAdmin()">Créer compte admin par défaut</button>
+            <button onclick="clearAllData()">Effacer toutes les données</button>
+            <button onclick="exportData()">Exporter les données</button>
+            <button onclick="testLogin()">Tester connexion admin</button>
+        </div>
+
+        <div class="section" id="logs">
+            <h2>📋 Logs</h2>
+            <pre id="log-content">Logs du diagnostic...</pre>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logElement = document.getElementById('log-content');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+        }
+
+        function checkAuthStatus() {
+            const user = localStorage.getItem('user');
+            const users = localStorage.getItem('users');
+            const authSection = document.getElementById('auth-info');
+            
+            if (user) {
+                const userData = JSON.parse(user);
+                authSection.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Utilisateur connecté</h3>
+                        <p><strong>Email:</strong> ${userData.email}</p>
+                        <p><strong>Nom:</strong> ${userData.firstName} ${userData.lastName}</p>
+                        <p><strong>Rôle:</strong> ${userData.role}</p>
+                    </div>
+                `;
+                log(`Utilisateur connecté: ${userData.email}`);
+            } else {
+                authSection.innerHTML = `
+                    <div class="warning">
+                        <h3>⚠️ Aucun utilisateur connecté</h3>
+                        <p>Vous devez vous connecter pour accéder aux pages protégées.</p>
+                    </div>
+                `;
+                log('Aucun utilisateur connecté');
+            }
+
+            const usersCount = users ? JSON.parse(users).length : 0;
+            authSection.innerHTML += `<p><strong>Utilisateurs enregistrés:</strong> ${usersCount}</p>`;
+            log(`${usersCount} utilisateur(s) enregistré(s)`);
+        }
+
+        function checkDataStatus() {
+            const staff = localStorage.getItem('staff.json');
+            const evaluations = localStorage.getItem('evaluations.json');
+            const themes = localStorage.getItem('themes.json');
+            const dataSection = document.getElementById('data-info');
+            
+            const staffCount = staff ? JSON.parse(staff).length : 0;
+            const evalCount = evaluations ? JSON.parse(evaluations).length : 0;
+            const themeCount = themes ? JSON.parse(themes).length : 0;
+            
+            dataSection.innerHTML = `
+                <div class="section">
+                    <p><strong>Personnel:</strong> ${staffCount} entrée(s)</p>
+                    <p><strong>Évaluations:</strong> ${evalCount} entrée(s)</p>
+                    <p><strong>Thèmes:</strong> ${themeCount} entrée(s)</p>
+                </div>
+            `;
+            
+            log(`Données: ${staffCount} staff, ${evalCount} évaluations, ${themeCount} thèmes`);
+        }
+
+        function createDefaultAdmin() {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const adminExists = users.some(u => u.email === 'admin@cfp.com');
+            
+            if (!adminExists) {
+                const adminUser = {
+                    id: 'admin-default',
+                    email: 'admin@cfp.com',
+                    password: 'btoa:' + btoa('admin123' + 'CFP_SALT_2024'),
+                    firstName: 'Admin',
+                    lastName: 'CFP',
+                    role: 'admin',
+                    createdAt: new Date().toISOString()
+                };
+                
+                users.push(adminUser);
+                localStorage.setItem('users', JSON.stringify(users));
+                log('✅ Compte admin par défaut créé: admin@cfp.com / admin123');
+                alert('Compte admin créé avec succès!\nEmail: admin@cfp.com\nMot de passe: admin123');
+            } else {
+                log('ℹ️ Compte admin par défaut existe déjà');
+                alert('Le compte admin existe déjà!');
+            }
+            
+            checkAuthStatus();
+        }
+
+        function clearAllData() {
+            if (confirm('Êtes-vous sûr de vouloir effacer toutes les données? Cette action est irréversible.')) {
+                localStorage.clear();
+                log('🗑️ Toutes les données ont été effacées');
+                alert('Données effacées!');
+                checkAuthStatus();
+                checkDataStatus();
+            }
+        }
+
+        function exportData() {
+            const data = {
+                user: localStorage.getItem('user'),
+                users: localStorage.getItem('users'),
+                staff: localStorage.getItem('staff.json'),
+                evaluations: localStorage.getItem('evaluations.json'),
+                themes: localStorage.getItem('themes.json')
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cfpt-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            
+            log('📁 Données exportées');
+        }
+
+        function testLogin() {
+            const email = 'admin@cfp.com';
+            const password = 'admin123';
+            
+            // Simuler la logique de login
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const foundUser = users.find(u => u.email === email);
+            
+            if (foundUser) {
+                const isPasswordValid = foundUser.password === 'btoa:' + btoa(password + 'CFP_SALT_2024');
+                if (isPasswordValid) {
+                    const userToLogin = {
+                        id: foundUser.id,
+                        email: foundUser.email,
+                        firstName: foundUser.firstName,
+                        lastName: foundUser.lastName,
+                        role: foundUser.role,
+                        createdAt: foundUser.createdAt
+                    };
+                    
+                    localStorage.setItem('user', JSON.stringify(userToLogin));
+                    log('✅ Test de connexion réussi');
+                    alert('Connexion test réussie! Vous pouvez maintenant accéder aux pages protégées.');
+                    checkAuthStatus();
+                } else {
+                    log('❌ Test de connexion échoué - Mot de passe incorrect');
+                    alert('Échec du test - Mot de passe incorrect');
+                }
+            } else {
+                // Compte par défaut
+                const mockUser = {
+                    id: '1',
+                    email,
+                    firstName: 'Admin',
+                    lastName: 'CFP',
+                    role: 'admin',
+                    createdAt: new Date().toISOString()
+                };
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                log('✅ Connexion admin par défaut réussie');
+                alert('Connexion admin par défaut réussie!');
+                checkAuthStatus();
+            }
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔧 Diagnostic CFPT démarré');
+            checkAuthStatus();
+            checkDataStatus();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+📌 GUIDE RAPIDE - DONNÉES PERDUES APRÈS FERMETURE .EXE
+
+╔════════════════════════════════════════════════════════════════╗
+║                     DIAGNOSTIC RAPIDE                          ║
+╚════════════════════════════════════════════════════════════════╝
+
+🔴 PROBLÈME
+───────────
+Utilisateur ajoute des données dans l'app desktop → Ferme → Les données
+disparaissent après redémarrage.
+
+🔍 CAUSE IDENTIFIÉE
+────────────────────
+Votre code utilise 2 systèmes de base de données:
+1. DatabaseService (SQLite) - electron/database.js
+2. DataManager (JSON) - electron/main.cjs
+
+Les deux ne sont PAS synchronisés → Conflit de données
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                     SOLUTION RAPIDE (15 MIN)                   ║
+╚════════════════════════════════════════════════════════════════╝
+
+📝 ÉTAPE 1: Ouvrir electron/main.cjs
+
+🔧 ÉTAPE 2: Remplacer 3 sections
+
+┌─────────────────────────────────────────────────────────────┐
+│ SECTION A: Gestionnaire de fermeture (ligne ~652)           │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Trouver:                                                    │
+│ app.on('window-all-closed', () => {                        │
+│   if (process.platform !== 'darwin') {                     │
+│     if (dataManager) {                                      │
+│       dataManager.saveData();                               │
+│     }                                                       │
+│     app.quit();                                             │
+│   }                                                         │
+│ });                                                         │
+│                                                              │
+│ Remplacer par le code de:                                  │
+│ → EXEMPLE_COMPLET_CORRECTION.js → SECTION 1                │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ SECTION B: Tous les ipcMain.handle (ligne ~663-765)        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Chercher TOUS les patterns:                                │
+│ ipcMain.handle('db-XXX', (...) => {                        │
+│   return databaseService ? ... : dataManager...            │
+│ });                                                         │
+│                                                              │
+│ Remplacer par le code de:                                  │
+│ → EXEMPLE_COMPLET_CORRECTION.js → SECTION 3                │
+│                                                              │
+│ IMPORTANT: Faire ça pour TOUS les handlers                 │
+│ (environ 20 handlers)                                       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ SECTION C: Auto-save (ajouter après createWindow)          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Ajouter ce code dans app.whenReady().then()                │
+│                                                              │
+│ → EXEMPLE_COMPLET_CORRECTION.js → SECTION 2                │
+│                                                              │
+│ (Optionnel mais recommandé)                                │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+💾 ÉTAPE 3: Compiler
+
+npm run build
+
+✅ ÉTAPE 4: Tester
+
+1. Lancer le nouveau .exe
+2. Ajouter 5 données (Personnel)
+3. Fermer l'app (X ou Ctrl+Q)
+4. Attendre 2-3 secondes
+5. Rouvrir l'app
+6. Vérifier que les 5 données sont là ✓
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  FICHIERS DE RÉFÉRENCE                        ║
+╚════════════════════════════════════════════════════════════════╝
+
+📄 DATA_PERSISTENCE_FIX.md
+   → Diagnostic complet (pourquoi ça se passe)
+   → Solutions détaillées
+   → Checklist
+   Lire si: Vous voulez comprendre en profondeur
+
+🔧 EXEMPLE_COMPLET_CORRECTION.js
+   → Code à copier-coller (PRINCIPAL)
+   → Structure claire avec 3 sections
+   → Prêt à utiliser
+   Lire si: Vous voulez juste corriger rapidement
+
+📝 CORRECTIONS_PERSISTANCE.js
+   → Explications détaillées pour chaque fix
+   → Points clés à prendre en compte
+   Lire si: Vous avez des questions
+
+🔍 verify-persistence.js
+   → Script de vérification du code
+   → Detecte automatiquement les problèmes
+   Utiliser: Après avoir appliqué les corrections
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  CHECKLIST D'IMPLÉMENTATION                   ║
+╚════════════════════════════════════════════════════════════════╝
+
+□ Ouvrir EXEMPLE_COMPLET_CORRECTION.js
+□ Ouvrir electron/main.cjs côte à côte
+□ Copier Section 1 (window-all-closed handler)
+□ Remplacer les lignes 652-658 de main.cjs
+□ Vérifier la syntaxe (pas d'erreurs)
+□ Copier Section 3 (ipcMain.handle)
+□ Remplacer tous les handlers (663-765)
+□ Vérifier qu'il y a ~20 handlers remplacés
+□ Copier Section 2 (auto-save)
+□ Ajouter après createWindow()
+□ Sauvegarder main.cjs
+□ npm run build
+□ Tester avec le .exe (5 données + fermeture + réouverture)
+□ Vérifier que les données persistent ✓
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  DIAGNOSTIC RAPIDE                            ║
+╚════════════════════════════════════════════════════════════════╝
+
+❓ Comment savoir si c'est le problème?
+
+1. Ouvrir l'app
+2. Ajouter 1 personnel: "Test Data"
+3. Menu → Données → Ouvrir dossier de données
+4. Chercher le fichier cfp-data.json
+
+Si cfp-data.json existe:
+   → BONNE NOUVELLE! Les données sont sauvegardées
+   → Le problème est au redémarrage (pas lu le fichier)
+   → Solution: Même fix (remplacer handlers)
+
+Si cfp-data.json n'existe PAS:
+   → Le problème est la sauvegarde elle-même
+   → Solution: Appliquer le fix (section 1)
+
+Si cfp-data.json existe MAIS ne contient pas "Test Data":
+   → Les données vont dans SQLite, pas JSON
+   → Solution: Appliquer le fix complet (sections 1-3)
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  RÉSUMÉ DE LA SOLUTION                        ║
+╚════════════════════════════════════════════════════════════════╝
+
+AVANT:
+  Données → SQLite OU JSON (aléatoire)
+       ↓
+  Fermeture → Sauvegarder JSON seulement
+       ↓
+  Données dans SQLite = PERDUES ❌
+
+APRÈS:
+  Données → TOUJOURS DataManager (JSON)
+       ↓
+  Fermeture → Sauvegarder JSON + SQLite checkpoint
+       ↓
+  Toutes les données PERSISTÉES ✓
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  EN CAS DE PROBLÈME                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+Si le problème persiste après les corrections:
+
+1. Exécuter: node verify-persistence.js
+   → Vérifier automatiquement votre code
+
+2. Vérifier la console lors de la fermeture:
+   Doit afficher: "✅ Données JSON sauvegardées avec succès"
+
+3. Chercher cfp-data.json à:
+   C:\Users\<USERNAME>\AppData\Local\<NomApp>\cfp-data.json
+   
+   Si absent:
+   → Problème de permissions
+   → Vérifier les droits d'écriture sur AppData
+
+4. Regarder les logs du .exe:
+   → Si erreurs, elles s'affichent dans la console
+
+5. Tester en mode DEV:
+   npm run dev
+   → Ajouter données + fermer + réouvrir
+   → Si ça marche en dev mais pas en .exe
+   → Problème de path ou permissions
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  TEMPS ESTIMÉ                                 ║
+╚════════════════════════════════════════════════════════════════╝
+
+Diagnostic:        2 minutes ⏱️
+Implémentation:   10 minutes ⏱️
+Compilation:       3 minutes ⏱️
+Test:              5 minutes ⏱️
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOTAL:            ~20 minutes ✓
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                  QUESTIONS/RÉPONSES                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+Q: Vais-je perdre les données existantes?
+R: Non, elles seront relues au démarrage.
+
+Q: Faut-il garder SQLite?
+R: Non, DataManager (JSON) suffit. SQLite peut être supprimé.
+
+Q: Combien de temps pour que ça marche?
+R: 20 minutes max.
+
+Q: Et si j'ai d'autres problèmes?
+R: Vérifier DATA_PERSISTENCE_FIX.md section "Problèmes potentiels"
+
+Q: C'est grave comme problème?
+R: Critique en production, mais simple à fixer.
+
+Q: Pourquoi ça n'a pas été détecté avant?
+R: Double système (SQLite+JSON) crée une ambiguïté => conflit
+
+
+═════════════════════════════════════════════════════════════════
+
+✅ TL;DR - Résumé ultra-court:
+
+1. Copier code de EXEMPLE_COMPLET_CORRECTION.js
+2. Remplacer 3 sections dans electron/main.cjs
+3. npm run build
+4. Tester ✓
+
+C'est tout! 🎉

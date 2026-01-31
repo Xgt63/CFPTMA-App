@@ -1,0 +1,281 @@
+🎯 VISUALISATION DU PROBLÈME
+
+═══════════════════════════════════════════════════════════════════
+
+📊 ARCHITECTURE ACTUELLE (PROBLÉMATIQUE)
+
+                    APPLICATION
+                        │
+                ┌───────┴───────┐
+                │               │
+         ┌──────▼──────┐   ┌───▼─────────┐
+         │ DatabaseService    │ DataManager    │
+         │ (SQLite)           │ (JSON)        │
+         └──────┬──────┘   └───┬─────────┘
+                │              │
+         ┌──────▼──────┐   ┌───▼──────────────────┐
+         │ evaluation_  │   │ cfp-data.json       │
+         │ system.db   │   │ (data/staff, etc)    │
+         └─────────────┘   └─────────────────────┘
+
+PROBLÈME:
+  • Données peuvent aller dans l'UNE ou l'AUTRE
+  • À la fermeture, SEUL JSON est sauvegardé
+  • SQLite reste avec les données non persistées
+  • Résultat: Données perdues ❌
+
+
+═══════════════════════════════════════════════════════════════════
+
+🔄 FLUX ACTUEL (INCORRECT)
+
+   1️⃣ UTILISATEUR AJOUTE DES DONNÉES
+   ──────────────────────────────────
+   
+   "Ajouter un personnel"
+          │
+          ▼
+   IPC: db-create-staff
+          │
+          ▼
+   Handler: ipcMain.handle('db-create-staff', ...)
+          │
+          ▼
+   ❓ TERNAIRE: databaseService ? ... : dataManager
+          │
+    ┌─────┴─────┐
+    │           │
+  OUI (50%)   NON (50%)
+    │           │
+    ▼           ▼
+ SQLite ← → JSON
+    │           │
+    │ INCOHÉRENCE!
+    │ Parfois l'un,
+    │ parfois l'autre
+    │
+    ▼
+  Données en mémoire/base
+
+
+   2️⃣ UTILISATEUR FERME L'APPLICATION
+   ───────────────────────────────────
+   
+   Fermer la fenêtre (X ou Ctrl+Q)
+          │
+          ▼
+   app.on('window-all-closed')
+          │
+          ▼
+   dataManager.saveData() ✓
+          │
+          ▼
+   ❌ SQLite.close() MANQUANT ❌
+          │
+          ▼
+   app.quit()
+
+
+   3️⃣ REDÉMARRER L'APPLICATION
+   ────────────────────────────
+   
+   DataManager.initialize()
+          │
+          ▼
+   Lire cfp-data.json ✓
+          │
+          ▼
+   data.staff = [...] 
+          │
+          ▼
+   ❓ Mais les données ajoutées n'étaient peut-être 
+     pas dans JSON, mais dans SQLite!
+          │
+          ▼
+   ❌ DONNÉES PERDUES ❌
+
+
+═══════════════════════════════════════════════════════════════════
+
+🛠️ SOLUTION: ARCHITECTURE UNIFIÉE
+
+                    APPLICATION
+                        │
+                        │
+                 ┌──────▼──────┐
+                 │ DataManager  │ ← UNIQUE SOURCE
+                 │ (JSON)       │
+                 └──────┬───────┘
+                        │
+                 ┌──────▼──────────┐
+                 │ cfp-data.json   │
+                 │ (PERSISTÉ)      │
+                 └─────────────────┘
+
+AVANTAGES:
+  ✓ Source unique de vérité
+  ✓ Pas de conflit de synchronisation
+  ✓ Plus simple à déboguer
+  ✓ Plus rapide (pas de SQLite)
+
+
+═══════════════════════════════════════════════════════════════════
+
+📈 FLUX CORRIGÉ (CORRECT)
+
+   1️⃣ UTILISATEUR AJOUTE DES DONNÉES
+   ──────────────────────────────────
+   
+   "Ajouter un personnel"
+          │
+          ▼
+   IPC: db-create-staff
+          │
+          ▼
+   Handler: ipcMain.handle('db-create-staff', ...)
+          │
+          ▼
+   return dataManager.createStaff(...) ✓
+          │
+          ▼
+   Données ajoutées à dataManager.data.staff
+          │
+          ▼
+   dataManager.saveData() appelée automatiquement ✓
+          │
+          ▼
+   cfp-data.json mis à jour immédiatement
+          │
+          ▼
+   Données PERSISTÉES ✓
+
+
+   2️⃣ UTILISATEUR FERME L'APPLICATION
+   ───────────────────────────────────
+   
+   Fermer la fenêtre (X ou Ctrl+Q)
+          │
+          ▼
+   app.on('window-all-closed')
+          │
+          ├─→ dataManager.saveData() ✓
+          │
+          └─→ databaseService.close() ✓ (si actif)
+          │
+          ▼
+   app.quit()
+   
+   ✓ TOUS les systèmes sauvegardés
+
+
+   3️⃣ REDÉMARRER L'APPLICATION
+   ────────────────────────────
+   
+   DataManager.initialize()
+          │
+          ▼
+   Lire cfp-data.json ✓
+          │
+          ▼
+   data.staff = [...]  (inclut les données ajoutées)
+          │
+          ▼
+   ✓ DONNÉES RESTAURÉES ✓
+
+
+═══════════════════════════════════════════════════════════════════
+
+📊 COMPARAISON: AVANT vs APRÈS
+
+╔═══════════════════╦══════════════════╦═══════════════════╗
+║   ASPECT          ║     AVANT         ║      APRÈS        ║
+╠═══════════════════╬══════════════════╬═══════════════════╣
+║ Système BD        ║ SQLite + JSON ❌  ║ JSON seulement ✓  ║
+║ Synchronisation   ║ Aucune ❌        ║ Unifiée ✓        ║
+║ À la fermeture    ║ Partiel ❌       ║ Complet ✓        ║
+║ Persistance       ║ Aléatoire ❌     ║ Garantie ✓       ║
+║ Complexité        ║ Haute ❌         ║ Basse ✓          ║
+║ Fiabilité         ║ Faible ❌        ║ Haute ✓          ║
+║ Performance       ║ Décente 🟡       ║ Bonne ✓          ║
+║ Debugging         ║ Difficile ❌     ║ Facile ✓         ║
+╚═══════════════════╩══════════════════╩═══════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════
+
+🔍 POINTS CLÉS DE LA SOLUTION
+
+1️⃣ ABANDON DE LA TERNAIRE
+   ─────────────────────────
+   AVANT:
+   return databaseService ? databaseService.getStaff() 
+                          : dataManager.getStaff();
+   
+   APRÈS:
+   return dataManager.getStaff();
+   
+   Résultat: Toujours la MÊME source ✓
+
+
+2️⃣ SAUVEGARDE COMPLÈTE À LA FERMETURE
+   ────────────────────────────────────
+   app.on('window-all-closed', () => {
+     dataManager.saveData();          // JSON
+     databaseService.close();         // SQLite
+     app.quit();
+   });
+   
+   Résultat: Rien n'est perdu ✓
+
+
+3️⃣ AUTO-SAVE PÉRIODIQUE
+   ───────────────────────
+   setInterval(() => {
+     dataManager.saveData();
+   }, 5 * 60 * 1000);  // Toutes les 5 min
+   
+   Résultat: Perte max = 5 min de données ✓
+
+
+═══════════════════════════════════════════════════════════════════
+
+📋 CHECKLIST DE VÉRIFICATION
+
+Avant le fix:
+  □ Ajouter 3 données
+  □ Fermer l'app
+  □ Rouvrir
+  □ Les données ont disparu ❌
+
+Après le fix:
+  □ Ajouter 3 données
+  □ Vérifier cfp-data.json mis à jour ✓
+  □ Fermer l'app
+  □ Les logs affichent "Données sauvegardées" ✓
+  □ Rouvrir
+  □ Les données sont là ✓
+
+
+═══════════════════════════════════════════════════════════════════
+
+🎯 RÉSUMÉ
+
+PROBLÈME:
+  → Double système (SQLite + JSON) non synchronisé
+  → Données ajoutées → parfois dans l'un, parfois dans l'autre
+  → À la fermeture → seul JSON est sauvegardé
+  → Résultat → données dans SQLite = perdues
+
+SOLUTION:
+  → Utiliser UNIQUEMENT DataManager (JSON)
+  → Remplacer tous les ternaires par appels directs
+  → Sauvegarder complètement à la fermeture
+  → Auto-save périodique en bonus
+
+RÉSULTAT:
+  → Données toujours persistées ✓
+  → Code plus simple ✓
+  → Debugging plus facile ✓
+
+
+═══════════════════════════════════════════════════════════════════

@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS basique pour éviter les problèmes de défilement */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+/* Pour éviter les modales qui cassent le scroll */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.modal-content {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Styles pour la barre de titre personnalisée Electron */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.drag-region button {
+  -webkit-app-region: no-drag;
+}
+
+/* Styles spécifiques pour la barre de titre Electron */
+.electron-titlebar {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.electron-titlebar-buttons {
+  -webkit-app-region: no-drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.electron-titlebar-buttons button {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+
+/* Corrections pour Electron frameless window */
+.electron-window {
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.electron-content {
+  height: calc(100vh - 40px);
+  overflow: auto;
+}

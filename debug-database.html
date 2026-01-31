@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diagnostic Base de Données CFPT</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #0011ef;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f1b0b7;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #0011ef;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0009cc;
+        }
+        .button-secondary {
+            background: #6c757d;
+        }
+        .button-success {
+            background: #28a745;
+        }
+        .button-danger {
+            background: #dc3545;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnostic Base de Données CFPT Ivato</h1>
+    
+    <div class="section">
+        <h2>Actions de Diagnostic</h2>
+        <button onclick="analyzeDatabase()">🔍 Analyser la Base</button>
+        <button onclick="loadTestData()" class="button-success">👥 Charger Données Test</button>
+        <button onclick="clearDatabase()" class="button-danger">🗑️ Vider Tout</button>
+        <button onclick="repairDatabase()" class="button-secondary">🔧 Réparer</button>
+    </div>
+
+    <div class="section">
+        <h2>État de la Base de Données</h2>
+        <div id="database-status"></div>
+    </div>
+
+    <div class="section">
+        <h2>Personnel (staff)</h2>
+        <div id="staff-analysis"></div>
+    </div>
+
+    <div class="section">
+        <h2>Évaluations (evaluations)</h2>
+        <div id="evaluations-analysis"></div>
+    </div>
+
+    <div class="section">
+        <h2>Thèmes (themes)</h2>
+        <div id="themes-analysis"></div>
+    </div>
+
+    <div class="section">
+        <h2>Données Brutes</h2>
+        <div id="raw-data"></div>
+    </div>
+
+    <script>
+        // Fonction principale de diagnostic
+        function analyzeDatabase() {
+            console.log('🔍 Début analyse base de données...');
+            
+            const results = {
+                staff: analyzeStaff(),
+                evaluations: analyzeEvaluations(),
+                themes: analyzeThemes(),
+                localStorage: checkLocalStorage()
+            };
+
+            displayResults(results);
+        }
+
+        // Analyser le personnel
+        function analyzeStaff() {
+            console.log('👥 Analyse du personnel...');
+            const staffData = localStorage.getItem('staff');
+            
+            if (!staffData) {
+                return {
+                    status: 'empty',
+                    message: 'Aucune donnée personnel trouvée',
+                    data: null,
+                    count: 0
+                };
+            }
+
+            try {
+                const staff = JSON.parse(staffData);
+                const validStaff = staff.filter(member => 
+                    member && member.firstName && member.lastName && member.email
+                );
+
+                return {
+                    status: staff.length > 0 ? 'found' : 'empty',
+                    message: `${staff.length} membre(s) trouvé(s), ${validStaff.length} valide(s)`,
+                    data: staff,
+                    count: staff.length,
+                    validCount: validStaff.length,
+                    raw: staffData
+                };
+            } catch (error) {
+                return {
+                    status: 'error',
+                    message: 'Erreur parsing JSON: ' + error.message,
+                    data: null,
+                    count: 0,
+                    raw: staffData
+                };
+            }
+        }
+
+        // Analyser les évaluations
+        function analyzeEvaluations() {
+            console.log('📊 Analyse des évaluations...');
+            const evaluationsData = localStorage.getItem('evaluations');
+            
+            if (!evaluationsData) {
+                return {
+                    status: 'empty',
+                    message: 'Aucune donnée évaluation trouvée',
+                    data: null,
+                    count: 0
+                };
+            }
+
+            try {
+                const evaluations = JSON.parse(evaluationsData);
+                return {
+                    status: evaluations.length > 0 ? 'found' : 'empty',
+                    message: `${evaluations.length} évaluation(s) trouvée(s)`,
+                    data: evaluations,
+                    count: evaluations.length,
+                    raw: evaluationsData
+                };
+            } catch (error) {
+                return {
+                    status: 'error',
+                    message: 'Erreur parsing JSON: ' + error.message,
+                    data: null,
+                    count: 0,
+                    raw: evaluationsData
+                };
+            }
+        }
+
+        // Analyser les thèmes
+        function analyzeThemes() {
+            console.log('🎯 Analyse des thèmes...');
+            const themesData = localStorage.getItem('themes');
+            
+            if (!themesData) {
+                return {
+                    status: 'empty',
+                    message: 'Aucune donnée thème trouvée',
+                    data: null,
+                    count: 0
+                };
+            }
+
+            try {
+                const themes = JSON.parse(themesData);
+                return {
+                    status: themes.length > 0 ? 'found' : 'empty',
+                    message: `${themes.length} thème(s) trouvé(s)`,
+                    data: themes,
+                    count: themes.length,
+                    raw: themesData
+                };
+            } catch (error) {
+                return {
+                    status: 'error',
+                    message: 'Erreur parsing JSON: ' + error.message,
+                    data: null,
+                    count: 0,
+                    raw: themesData
+                };
+            }
+        }
+
+        // Vérifier localStorage
+        function checkLocalStorage() {
+            const keys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    keys.push({
+                        key: key,
+                        size: localStorage.getItem(key)?.length || 0,
+                        preview: (localStorage.getItem(key) || '').substring(0, 100)
+                    });
+                }
+            }
+
+            return {
+                totalKeys: keys.length,
+                keys: keys,
+                available: typeof Storage !== "undefined"
+            };
+        }
+
+        // Afficher les résultats
+        function displayResults(results) {
+            // État général
+            let statusHtml = `
+                <div class="status ${results.localStorage.available ? 'success' : 'error'}">
+                    localStorage: ${results.localStorage.available ? 'Disponible' : 'Non disponible'}
+                    <br>Clés totales: ${results.localStorage.totalKeys}
+                </div>
+            `;
+            document.getElementById('database-status').innerHTML = statusHtml;
+
+            // Personnel
+            const staffStatus = results.staff.status === 'found' ? 'success' : 
+                               results.staff.status === 'empty' ? 'warning' : 'error';
+            let staffHtml = `
+                <div class="status ${staffStatus}">
+                    ${results.staff.message}
+                </div>
+            `;
+            
+            if (results.staff.data && results.staff.data.length > 0) {
+                staffHtml += '<table><tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Email</th><th>Poste</th><th>Valide</th></tr>';
+                results.staff.data.forEach(member => {
+                    const isValid = member && member.firstName && member.lastName && member.email;
+                    staffHtml += `<tr>
+                        <td>${member?.id || 'N/A'}</td>
+                        <td>${member?.lastName || 'N/A'}</td>
+                        <td>${member?.firstName || 'N/A'}</td>
+                        <td>${member?.email || 'N/A'}</td>
+                        <td>${member?.position || 'N/A'}</td>
+                        <td>${isValid ? '✅' : '❌'}</td>
+                    </tr>`;
+                });
+                staffHtml += '</table>';
+            }
+            
+            if (results.staff.raw) {
+                staffHtml += `<details><summary>Données brutes</summary><pre>${results.staff.raw}</pre></details>`;
+            }
+            
+            document.getElementById('staff-analysis').innerHTML = staffHtml;
+
+            // Évaluations
+            const evalStatus = results.evaluations.status === 'found' ? 'success' : 
+                              results.evaluations.status === 'empty' ? 'warning' : 'error';
+            let evalHtml = `
+                <div class="status ${evalStatus}">
+                    ${results.evaluations.message}
+                </div>
+            `;
+            
+            if (results.evaluations.data && results.evaluations.data.length > 0) {
+                evalHtml += '<table><tr><th>ID</th><th>Nom</th><th>Thème</th><th>Date</th></tr>';
+                results.evaluations.data.slice(0, 10).forEach(evaluation => {
+                    evalHtml += `<tr>
+                        <td>${evaluation?.id || 'N/A'}</td>
+                        <td>${evaluation?.firstName} ${evaluation?.lastName}</td>
+                        <td>${evaluation?.formationTheme || 'N/A'}</td>
+                        <td>${evaluation?.fillDate || evaluation?.createdAt || 'N/A'}</td>
+                    </tr>`;
+                });
+                evalHtml += '</table>';
+                if (results.evaluations.data.length > 10) {
+                    evalHtml += `<p><em>... et ${results.evaluations.data.length - 10} autre(s)</em></p>`;
+                }
+            }
+            
+            document.getElementById('evaluations-analysis').innerHTML = evalHtml;
+
+            // Thèmes
+            const themeStatus = results.themes.status === 'found' ? 'success' : 
+                               results.themes.status === 'empty' ? 'warning' : 'error';
+            let themeHtml = `
+                <div class="status ${themeStatus}">
+                    ${results.themes.message}
+                </div>
+            `;
+            
+            if (results.themes.data && results.themes.data.length > 0) {
+                themeHtml += '<table><tr><th>ID</th><th>Nom</th><th>Description</th></tr>';
+                results.themes.data.forEach(theme => {
+                    themeHtml += `<tr>
+                        <td>${theme?.id || 'N/A'}</td>
+                        <td>${theme?.name || 'N/A'}</td>
+                        <td>${theme?.description || 'N/A'}</td>
+                    </tr>`;
+                });
+                themeHtml += '</table>';
+            }
+            
+            document.getElementById('themes-analysis').innerHTML = themeHtml;
+
+            // Données brutes
+            let rawHtml = '<h3>Toutes les clés localStorage:</h3>';
+            results.localStorage.keys.forEach(keyInfo => {
+                rawHtml += `
+                    <details>
+                        <summary><strong>${keyInfo.key}</strong> (${keyInfo.size} caractères)</summary>
+                        <pre>${keyInfo.preview}${keyInfo.size > 100 ? '...' : ''}</pre>
+                    </details>
+                `;
+            });
+            document.getElementById('raw-data').innerHTML = rawHtml;
+
+            console.log('📋 Résultats du diagnostic:', results);
+        }
+
+        // Charger des données de test
+        function loadTestData() {
+            if (!confirm('Voulez-vous charger des données de test ? Cela va ajouter du personnel fictif.')) {
+                return;
+            }
+
+            const testStaff = [
+                {
+                    id: Date.now() + 1,
+                    matricule: 'MAT2024001',
+                    firstName: 'Marie',
+                    lastName: 'Martin',
+                    position: 'Manager',
+                    email: 'marie.martin@cfpt.mg',
+                    phone: '034 12 345 67',
+                    establishment: 'Siège Social',
+                    formationYear: '2024',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 2,
+                    matricule: 'MAT2024002',
+                    firstName: 'Pierre',
+                    lastName: 'Dupont',
+                    position: 'Formateur',
+                    email: 'pierre.dupont@cfpt.mg',
+                    phone: '034 23 456 78',
+                    establishment: 'Centre Ivato',
+                    formationYear: '2024',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 3,
+                    matricule: 'MAT2024003',
+                    firstName: 'Sophie',
+                    lastName: 'Rakoto',
+                    position: 'Coordinatrice',
+                    email: 'sophie.rakoto@cfpt.mg',
+                    phone: '034 34 567 89',
+                    establishment: 'Centre Ivato',
+                    formationYear: '2024',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+
+            const themes = [
+                {
+                    id: 1,
+                    name: 'Leadership Management',
+                    description: 'Formation leadership et management d\'équipe',
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 2,
+                    name: 'Communication Efficace',
+                    description: 'Améliorer les compétences en communication',
+                    createdAt: new Date().toISOString()
+                }
+            ];
+
+            // Récupérer les données existantes
+            const existingStaff = JSON.parse(localStorage.getItem('staff') || '[]');
+            const existingThemes = JSON.parse(localStorage.getItem('themes') || '[]');
+
+            // Fusionner sans doublons
+            const allStaff = [...existingStaff];
+            testStaff.forEach(newMember => {
+                const exists = existingStaff.find(s => s.email === newMember.email);
+                if (!exists) {
+                    allStaff.push(newMember);
+                }
+            });
+
+            const allThemes = [...existingThemes];
+            themes.forEach(newTheme => {
+                const exists = existingThemes.find(t => t.name === newTheme.name);
+                if (!exists) {
+                    allThemes.push(newTheme);
+                }
+            });
+
+            // Sauvegarder
+            localStorage.setItem('staff', JSON.stringify(allStaff));
+            localStorage.setItem('themes', JSON.stringify(allThemes));
+
+            alert(`✅ Données de test chargées !\n👥 ${allStaff.length} membres\n🎯 ${allThemes.length} thèmes`);
+            
+            // Réanalyser
+            analyzeDatabase();
+        }
+
+        // Vider la base de données
+        function clearDatabase() {
+            if (!confirm('⚠️ ATTENTION: Voulez-vous vraiment supprimer TOUTES les données ?')) {
+                return;
+            }
+
+            if (!confirm('🚨 DERNIÈRE CHANCE: Cette action est irréversible !')) {
+                return;
+            }
+
+            localStorage.removeItem('staff');
+            localStorage.removeItem('evaluations');
+            localStorage.removeItem('themes');
+            localStorage.removeItem('users');
+
+            alert('🧹 Base de données vidée !');
+            analyzeDatabase();
+        }
+
+        // Réparer la base de données
+        function repairDatabase() {
+            console.log('🔧 Réparation de la base de données...');
+            
+            let repairReport = {
+                staff: { fixed: 0, removed: 0 },
+                evaluations: { fixed: 0, removed: 0 },
+                themes: { fixed: 0, removed: 0 }
+            };
+
+            // Réparer le personnel
+            try {
+                const staffData = localStorage.getItem('staff');
+                if (staffData) {
+                    const staff = JSON.parse(staffData);
+                    const repairedStaff = staff.filter(member => {
+                        if (!member) {
+                            repairReport.staff.removed++;
+                            return false;
+                        }
+                        
+                        let fixed = false;
+                        if (!member.id) {
+                            member.id = Date.now() + Math.random();
+                            fixed = true;
+                        }
+                        if (!member.matricule) {
+                            member.matricule = `MAT${Date.now()}`;
+                            fixed = true;
+                        }
+                        if (!member.createdAt) {
+                            member.createdAt = new Date().toISOString();
+                            fixed = true;
+                        }
+                        if (!member.formationYear) {
+                            member.formationYear = '2024';
+                            fixed = true;
+                        }
+                        
+                        if (fixed) {
+                            repairReport.staff.fixed++;
+                        }
+                        
+                        return member.firstName && member.lastName && member.email;
+                    });
+                    
+                    localStorage.setItem('staff', JSON.stringify(repairedStaff));
+                }
+            } catch (error) {
+                console.error('Erreur réparation staff:', error);
+            }
+
+            // S'assurer qu'il y a des thèmes par défaut
+            try {
+                const themesData = localStorage.getItem('themes');
+                let themes = [];
+                if (themesData) {
+                    themes = JSON.parse(themesData);
+                }
+
+                if (themes.length === 0) {
+                    themes = [
+                        {
+                            id: 1,
+                            name: 'Leadership Management',
+                            description: 'Formation sur les techniques de leadership et de management d\'équipe',
+                            createdAt: new Date().toISOString()
+                        },
+                        {
+                            id: 2,
+                            name: 'Communication Efficace',
+                            description: 'Améliorer ses compétences en communication interpersonnelle',
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                    localStorage.setItem('themes', JSON.stringify(themes));
+                    repairReport.themes.fixed = 2;
+                }
+            } catch (error) {
+                console.error('Erreur réparation themes:', error);
+            }
+
+            alert(`🔧 Réparation terminée !\n👥 Personnel: ${repairReport.staff.fixed} réparés, ${repairReport.staff.removed} supprimés\n🎯 Thèmes: ${repairReport.themes.fixed} ajoutés`);
+            analyzeDatabase();
+        }
+
+        // Lancer l'analyse au chargement
+        window.onload = function() {
+            analyzeDatabase();
+        };
+    </script>
+</body>
+</html>

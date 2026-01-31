@@ -1,0 +1,683 @@
+const path = require('path');
+const fs = require('fs');
+const { app } = require('electron');
+const MemoryDatabaseService = require('./memory-database');
+
+// Essayer de charger better-sqlite3, utiliser le fallback si échec
+let Database = null;
+try {
+  Database = require('better-sqlite3');
+  console.log('✅ better-sqlite3 chargé avec succès');
+} catch (error) {
+  console.warn('⚠️ better-sqlite3 non disponible:', error.message);
+  console.log('🔄 Utilisation du mode mémoire comme fallback');
+}
+
+class DatabaseService {
+  constructor() {
+    this.db = null;
+    this.dbPath = null;
+    this.isInitialized = false;
+    this.useMemoryFallback = !Database; // Si SQLite n'est pas disponible
+    this.memoryDb = null;
+  }
+
+  async initialize() {
+    if (this.isInitialized) return;
+
+    try {
+      if (this.useMemoryFallback) {
+        console.log('📝 Initialisation en mode mémoire (SQLite indisponible)');
+        this.memoryDb = new MemoryDatabaseService();
+        await this.memoryDb.initialize();
+        this.isInitialized = true;
+        console.log('✅ Base de données en mémoire initialisée');
+        return;
+      }
+
+      // Mode SQLite normal
+      const userDataPath = app.getPath('userData');
+      if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true });
+      }
+
+      this.dbPath = path.join(userDataPath, 'evaluation_system.db');
+      console.log('Initialisation de la base de données SQLite:', this.dbPath);
+
+      this.db = new Database(this.dbPath, { 
+        verbose: console.log,
+        fileMustExist: false 
+      });
+
+      // Activer les clés étrangères et les optimisations
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL');
+      this.db.pragma('cache_size = 10000');
+      this.db.pragma('foreign_keys = ON');
+
+      await this.createTables();
+      this.isInitialized = true;
+      console.log('✅ Base de données SQLite initialisée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur initialisation base de données:', error);
+      throw error;
+    }
+  }
+
+  async createTables() {
+    const tables = [
+      // Table des utilisateurs
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firstName TEXT NOT NULL,
+        lastName TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      // Table du personnel
+      `CREATE TABLE IF NOT EXISTS staff (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        matricule TEXT UNIQUE,
+        firstName TEXT NOT NULL,
+        lastName TEXT NOT NULL,
+        position TEXT,
+        email TEXT UNIQUE,
+        phone TEXT,
+        establishment TEXT,
+        formationYear INTEGER,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      // Table des thèmes de formation
+      `CREATE TABLE IF NOT EXISTS themes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      // Table des évaluations
+      `CREATE TABLE IF NOT EXISTS evaluations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        staffId INTEGER,
+        firstName TEXT,
+        lastName TEXT,
+        fillDate TEXT,
+        formationTheme TEXT,
+        skillsAcquisition INTEGER,
+        personalDevelopment INTEGER,
+        courseClarity INTEGER,
+        theoryPractice INTEGER,
+        syllabusAdequacy INTEGER,
+        practicalCases INTEGER,
+        objectivesAchieved INTEGER,
+        adaptedKnowledge INTEGER,
+        pedagogicalSupport INTEGER,
+        techniquesUsed INTEGER,
+        presentation INTEGER,
+        logisticsConditions INTEGER,
+        rhythm INTEGER,
+        punctuality INTEGER,
+        punctualityAssiduity INTEGER,
+        teamworkSense INTEGER,
+        motivationEnthusiasm INTEGER,
+        communicationSociable INTEGER,
+        communicationGeneral INTEGER,
+        aptitudeChangeIdeas INTEGER,
+        curiosity INTEGER,
+        initiativeSpirit INTEGER,
+        responsibilitySense INTEGER,
+        criticalAnalysis INTEGER,
+        workExecution INTEGER,
+        directivesComprehension INTEGER,
+        workQuality INTEGER,
+        subjectMastery INTEGER,
+        recommendationScore INTEGER,
+        justificationObservations TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staffId) REFERENCES staff(id) ON DELETE CASCADE
+      )`
+    ];
+
+    // Créer les tables une par une de manière asynchrone
+    for (const table of tables) {
+      try {
+        this.db.exec(table);
+      } catch (error) {
+        console.error('Erreur création table:', error);
+      }
+    }
+
+    // Insérer des thèmes par défaut s'ils n'existent pas
+    const themeCount = this.db.prepare('SELECT COUNT(*) as count FROM themes').get().count;
+    if (themeCount === 0) {
+      const defaultThemes = [
+        { name: 'Leadership Management', description: 'Formation sur les techniques de leadership et de management d\'équipe' },
+        { name: 'Communication Efficace', description: 'Améliorer ses compétences en communication interpersonnelle' },
+        { name: 'Gestion de Projet', description: 'Méthodologies et outils pour la gestion de projets' },
+        { name: 'Innovation & Créativité', description: 'Développer l\'innovation et la créativité en entreprise' }
+      ];
+
+      const insertTheme = this.db.prepare('INSERT INTO themes (name, description) VALUES (?, ?)');
+      const insertMany = this.db.transaction((themes) => {
+        for (const theme of themes) {
+          insertTheme.run(theme.name, theme.description);
+        }
+      });
+
+      insertMany(defaultThemes);
+      console.log('Thèmes par défaut créés');
+    }
+  }
+
+  // Méthode helper pour déléguer selon le mode
+  _delegate(method, ...args) {
+    if (this.useMemoryFallback) {
+      return this.memoryDb[method](...args);
+    }
+    // Utiliser la méthode SQLite existante
+    return this[`_sqlite_${method}`](...args);
+  }
+
+  // Méthodes unifiées avec délégation automatique
+  
+  // Users
+  async getUsers() {
+    if (this.useMemoryFallback) return this.memoryDb.getUsers();
+    try {
+      const stmt = this.db.prepare('SELECT * FROM users ORDER BY createdAt DESC');
+      return stmt.all();
+    } catch (error) {
+      console.error('Erreur getUsers:', error);
+      return [];
+    }
+  }
+
+  async createUser(userData) {
+    if (this.useMemoryFallback) return this.memoryDb.createUser(userData);
+    return this._sqlite_createUser(userData);
+  }
+
+  async updateUser(id, userData) {
+    if (this.useMemoryFallback) return this.memoryDb.updateUser(id, userData);
+    return this._sqlite_updateUser(id, userData);
+  }
+
+  async deleteUser(id) {
+    if (this.useMemoryFallback) return this.memoryDb.deleteUser(id);
+    return this._sqlite_deleteUser(id);
+  }
+
+  // Staff
+  async getStaff() {
+    if (this.useMemoryFallback) return this.memoryDb.getStaff();
+    return this._sqlite_getStaff();
+  }
+
+  async createStaff(staffData) {
+    if (this.useMemoryFallback) return this.memoryDb.createStaff(staffData);
+    return this._sqlite_createStaff(staffData);
+  }
+
+  async updateStaff(id, staffData) {
+    if (this.useMemoryFallback) return this.memoryDb.updateStaff(id, staffData);
+    return this._sqlite_updateStaff(id, staffData);
+  }
+
+  async deleteStaff(id) {
+    if (this.useMemoryFallback) return this.memoryDb.deleteStaff(id);
+    return this._sqlite_deleteStaff(id);
+  }
+
+  // Themes
+  async getThemes() {
+    if (this.useMemoryFallback) return this.memoryDb.getThemes();
+    return this._sqlite_getThemes();
+  }
+
+  async createTheme(themeData) {
+    if (this.useMemoryFallback) return this.memoryDb.createTheme(themeData);
+    return this._sqlite_createTheme(themeData);
+  }
+
+  async updateTheme(id, themeData) {
+    if (this.useMemoryFallback) return this.memoryDb.updateTheme(id, themeData);
+    return this._sqlite_updateTheme(id, themeData);
+  }
+
+  async deleteTheme(id) {
+    if (this.useMemoryFallback) return this.memoryDb.deleteTheme(id);
+    return this._sqlite_deleteTheme(id);
+  }
+
+  // Evaluations
+  async getEvaluations() {
+    if (this.useMemoryFallback) return this.memoryDb.getEvaluations();
+    return this._sqlite_getEvaluations();
+  }
+
+  async createEvaluation(evaluationData) {
+    if (this.useMemoryFallback) return this.memoryDb.createEvaluation(evaluationData);
+    return this._sqlite_createEvaluation(evaluationData);
+  }
+
+  async updateEvaluation(id, evaluationData) {
+    if (this.useMemoryFallback) return this.memoryDb.updateEvaluation(id, evaluationData);
+    return this._sqlite_updateEvaluation(id, evaluationData);
+  }
+
+  async deleteEvaluation(id) {
+    if (this.useMemoryFallback) return this.memoryDb.deleteEvaluation(id);
+    return this._sqlite_deleteEvaluation(id);
+  }
+
+  async getEvaluationStats() {
+    if (this.useMemoryFallback) return this.memoryDb.getEvaluationStats();
+    return this._sqlite_getEvaluationStats();
+  }
+
+  async exportData(type) {
+    if (this.useMemoryFallback) return this.memoryDb.exportData(type);
+    return this._sqlite_exportData(type);
+  }
+
+  async importData(jsonData) {
+    if (this.useMemoryFallback) return this.memoryDb.importData(jsonData);
+    return this._sqlite_importData(jsonData);
+  }
+
+  close() {
+    if (this.useMemoryFallback) {
+      this.memoryDb.close();
+    } else if (this.db) {
+      this.db.close();
+    }
+  }
+
+  // Méthodes SQLite originales (renommées)
+
+  async createUser(userData) {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO users (firstName, lastName, email, password, role)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const result = stmt.run(
+        userData.firstName,
+        userData.lastName,
+        userData.email,
+        userData.password,
+        userData.role || 'user'
+      );
+      return { id: result.lastInsertRowid, ...userData };
+    } catch (error) {
+      console.error('Erreur createUser:', error);
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new Error('Un utilisateur avec cet email existe déjà');
+      }
+      throw error;
+    }
+  }
+
+  async updateUser(id, userData) {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE users 
+        SET firstName = ?, lastName = ?, email = ?, role = ?, updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      const result = stmt.run(
+        userData.firstName,
+        userData.lastName,
+        userData.email,
+        userData.role || 'user',
+        id
+      );
+      return result.changes > 0;
+    } catch (error) {
+      console.error('Erreur updateUser:', error);
+      throw error;
+    }
+  }
+
+  async deleteUser(id) {
+    try {
+      const stmt = this.db.prepare('DELETE FROM users WHERE id = ?');
+      const result = stmt.run(id);
+      return { success: result.changes > 0, changes: result.changes };
+    } catch (error) {
+      console.error('Erreur deleteUser:', error);
+      throw error;
+    }
+  }
+
+  // Méthodes pour le personnel
+  async getStaff() {
+    try {
+      const stmt = this.db.prepare('SELECT * FROM staff ORDER BY createdAt DESC');
+      return stmt.all();
+    } catch (error) {
+      console.error('Erreur getStaff:', error);
+      return [];
+    }
+  }
+
+  async createStaff(staffData) {
+    try {
+      // Vérifier si un membre avec cet email existe déjà
+      if (staffData.email) {
+        const existing = this.db.prepare('SELECT id FROM staff WHERE email = ?').get(staffData.email);
+        if (existing) {
+          throw new Error('Un membre du personnel avec cet email existe déjà');
+        }
+      }
+
+      const stmt = this.db.prepare(`
+        INSERT INTO staff (matricule, firstName, lastName, position, email, phone, establishment, formationYear)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const result = stmt.run(
+        staffData.matricule,
+        staffData.firstName,
+        staffData.lastName,
+        staffData.position,
+        staffData.email,
+        staffData.phone,
+        staffData.establishment,
+        staffData.formationYear
+      );
+      return { id: result.lastInsertRowid, ...staffData };
+    } catch (error) {
+      console.error('Erreur createStaff:', error);
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new Error('Un membre avec ce matricule ou cet email existe déjà');
+      }
+      throw error;
+    }
+  }
+
+  async updateStaff(id, staffData) {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE staff 
+        SET matricule = ?, firstName = ?, lastName = ?, position = ?, 
+            email = ?, phone = ?, establishment = ?, formationYear = ?, updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      const result = stmt.run(
+        staffData.matricule,
+        staffData.firstName,
+        staffData.lastName,
+        staffData.position,
+        staffData.email,
+        staffData.phone,
+        staffData.establishment,
+        staffData.formationYear,
+        id
+      );
+      
+      if (result.changes > 0) {
+        const updatedStaff = this.db.prepare('SELECT * FROM staff WHERE id = ?').get(id);
+        return updatedStaff;
+      }
+      return null;
+    } catch (error) {
+      console.error('Erreur updateStaff:', error);
+      throw error;
+    }
+  }
+
+  async deleteStaff(id) {
+    try {
+      // Commencer une transaction pour supprimer le personnel ET ses évaluations
+      const transaction = this.db.transaction(() => {
+        // Supprimer d'abord les évaluations associées
+        const deleteEvals = this.db.prepare('DELETE FROM evaluations WHERE staffId = ?');
+        const evalsResult = deleteEvals.run(id);
+        
+        // Ensuite supprimer le membre du personnel
+        const deleteStaff = this.db.prepare('DELETE FROM staff WHERE id = ?');
+        const staffResult = deleteStaff.run(id);
+        
+        return { 
+          success: staffResult.changes > 0, 
+          changes: staffResult.changes,
+          evaluationsDeleted: evalsResult.changes
+        };
+      });
+
+      const result = transaction();
+      console.log(`Staff supprimé: ${result.changes} membre(s), ${result.evaluationsDeleted} évaluation(s)`);
+      return result;
+    } catch (error) {
+      console.error('Erreur deleteStaff:', error);
+      throw error;
+    }
+  }
+
+  // Méthodes pour les thèmes
+  async getThemes() {
+    try {
+      const stmt = this.db.prepare('SELECT * FROM themes ORDER BY name');
+      return stmt.all();
+    } catch (error) {
+      console.error('Erreur getThemes:', error);
+      return [];
+    }
+  }
+
+  async createTheme(themeData) {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO themes (name, description)
+        VALUES (?, ?)
+      `);
+      const result = stmt.run(themeData.name, themeData.description);
+      return { id: result.lastInsertRowid, ...themeData };
+    } catch (error) {
+      console.error('Erreur createTheme:', error);
+      throw error;
+    }
+  }
+
+  async updateTheme(id, themeData) {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE themes 
+        SET name = ?, description = ?, updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      const result = stmt.run(themeData.name, themeData.description, id);
+      return result.changes > 0;
+    } catch (error) {
+      console.error('Erreur updateTheme:', error);
+      throw error;
+    }
+  }
+
+  async deleteTheme(id) {
+    try {
+      const stmt = this.db.prepare('DELETE FROM themes WHERE id = ?');
+      const result = stmt.run(id);
+      return { success: result.changes > 0, changes: result.changes };
+    } catch (error) {
+      console.error('Erreur deleteTheme:', error);
+      throw error;
+    }
+  }
+
+  // Méthodes pour les évaluations
+  async getEvaluations() {
+    try {
+      const stmt = this.db.prepare('SELECT * FROM evaluations ORDER BY createdAt DESC');
+      return stmt.all();
+    } catch (error) {
+      console.error('Erreur getEvaluations:', error);
+      return [];
+    }
+  }
+
+  async createEvaluation(evaluationData) {
+    try {
+      const fields = Object.keys(evaluationData).join(', ');
+      const placeholders = Object.keys(evaluationData).map(() => '?').join(', ');
+      
+      const stmt = this.db.prepare(`
+        INSERT INTO evaluations (${fields})
+        VALUES (${placeholders})
+      `);
+      
+      const result = stmt.run(...Object.values(evaluationData));
+      return { id: result.lastInsertRowid, ...evaluationData };
+    } catch (error) {
+      console.error('Erreur createEvaluation:', error);
+      throw error;
+    }
+  }
+
+  async updateEvaluation(id, evaluationData) {
+    try {
+      const fields = Object.keys(evaluationData).map(key => `${key} = ?`).join(', ');
+      
+      const stmt = this.db.prepare(`
+        UPDATE evaluations 
+        SET ${fields}, updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      
+      const result = stmt.run(...Object.values(evaluationData), id);
+      return result.changes > 0;
+    } catch (error) {
+      console.error('Erreur updateEvaluation:', error);
+      throw error;
+    }
+  }
+
+  async deleteEvaluation(id) {
+    try {
+      const stmt = this.db.prepare('DELETE FROM evaluations WHERE id = ?');
+      const result = stmt.run(id);
+      return { success: result.changes > 0, changes: result.changes };
+    } catch (error) {
+      console.error('Erreur deleteEvaluation:', error);
+      throw error;
+    }
+  }
+
+  async getEvaluationStats() {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT 
+          formationTheme,
+          COUNT(*) as totalEvaluations,
+          AVG(skillsAcquisition) as avgSkillsAcquisition,
+          AVG(personalDevelopment) as avgPersonalDevelopment,
+          AVG(recommendationScore) as avgRecommendationScore,
+          COUNT(DISTINCT staffId) as totalParticipants
+        FROM evaluations 
+        WHERE formationTheme IS NOT NULL 
+        GROUP BY formationTheme
+        ORDER BY totalEvaluations DESC
+      `);
+      return stmt.all();
+    } catch (error) {
+      console.error('Erreur getEvaluationStats:', error);
+      return [];
+    }
+  }
+
+  // Export de données
+  async exportData(type = 'all') {
+    try {
+      const data = {};
+      
+      if (type === 'all' || type === 'staff') {
+        data.staff = await this.getStaff();
+      }
+      if (type === 'all' || type === 'evaluations') {
+        data.evaluations = await this.getEvaluations();
+      }
+      if (type === 'all' || type === 'themes') {
+        data.themes = await this.getThemes();
+      }
+      
+      return JSON.stringify(data, null, 2);
+    } catch (error) {
+      console.error('Erreur exportData:', error);
+      throw error;
+    }
+  }
+
+  // Import de données
+  async importData(jsonData) {
+    try {
+      const data = JSON.parse(jsonData);
+      let imported = 0;
+
+      // Commencer une transaction pour tout importer
+      const transaction = this.db.transaction(() => {
+        if (data.themes) {
+          for (const theme of data.themes) {
+            try {
+              this.createTheme(theme);
+              imported++;
+            } catch (error) {
+              console.warn('Thème ignoré (probablement en double):', theme.name);
+            }
+          }
+        }
+
+        if (data.staff) {
+          for (const staff of data.staff) {
+            try {
+              this.createStaff(staff);
+              imported++;
+            } catch (error) {
+              console.warn('Personnel ignoré (probablement en double):', staff.email);
+            }
+          }
+        }
+
+        if (data.evaluations) {
+          for (const evaluation of data.evaluations) {
+            try {
+              this.createEvaluation(evaluation);
+              imported++;
+            } catch (error) {
+              console.warn('Évaluation ignorée:', error.message);
+            }
+          }
+        }
+      });
+
+      transaction();
+      console.log(`Import terminé: ${imported} enregistrements importés`);
+      return true;
+    } catch (error) {
+      console.error('Erreur importData:', error);
+      return false;
+    }
+  }
+
+  // Fermer la connexion à la base de données
+  close() {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.isInitialized = false;
+      console.log('Base de données fermée');
+    }
+  }
+}
+
+// Instance singleton
+const databaseService = new DatabaseService();
+
+module.exports = databaseService;
