@@ -40,3 +40,7 @@ database.db
 *.msi
 *.dmg
 *.AppImage
+-e 
+# Environment files
+*.env
+*.env.*
