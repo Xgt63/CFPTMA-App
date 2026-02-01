@@ -216,7 +216,97 @@ async function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     // DevTools désactivés par défaut - F12 pour ouvrir manuellement
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    // En mode production, chercher dist/index.html
+    // Avec asarUnpack, les fichiers sont dans: __dirname/app/dist/index.html
+    // Ou dans: process.resourcesPath/app/dist/index.html (dans l'asar)
+    
+    const possiblePaths = [
+      // Mode production normal
+      path.join(__dirname, 'dist', 'index.html'),
+      // Depuis win-unpacked
+      path.join(__dirname, '..', 'dist', 'index.html'),
+      // Depuis resources avec asarUnpack
+      path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
+      // Fallback resources
+      path.join(process.resourcesPath, 'dist', 'index.html')
+    ];
+    
+    console.log('🔍 Mode Production - Recherche dist/index.html');
+    console.log('   __dirname:', __dirname);
+    console.log('   resourcesPath:', process.resourcesPath);
+    
+    let loaded = false;
+    
+    for (const indexPath of possiblePaths) {
+      console.log(`📁 Essai: ${indexPath}`);
+      try {
+        if (fs.existsSync(indexPath)) {
+          console.log(`✅ Trouvé! Chargement depuis: ${indexPath}`);
+          mainWindow.loadFile(indexPath);
+          loaded = true;
+          break;
+        }
+      } catch (e) {
+        console.error(`❌ Erreur: ${e.message}`);
+      }
+    }
+    
+    if (!loaded) {
+      console.error('🔴 ERREUR CRITIQUE: index.html non trouvé!');
+      
+      // Afficher diagnostics
+      try {
+        const resourcesPath = process.resourcesPath;
+        const resourcesContent = fs.readdirSync(resourcesPath);
+        console.error('   Contenu de resourcesPath:', resourcesContent);
+        
+        if (resourcesContent.includes('app.asar')) {
+          console.error('   ✓ app.asar trouvé');
+        }
+        if (resourcesContent.includes('app')) {
+          const appContent = fs.readdirSync(path.join(resourcesPath, 'app'));
+          console.error('   Contenu de resources/app:', appContent);
+        }
+      } catch (e) {
+        console.error('   Impossible d\'inspecter resources:', e.message);
+      }
+      
+      // Page d'erreur
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html lang="fr">
+          <head>
+            <meta charset="UTF-8">
+            <title>Erreur - CFPT Manager</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 40px; background: #f5f5f5; }
+              h1 { color: #d32f2f; text-align: center; }
+              .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+              code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+              ul { font-size: 14px; }
+              .debug { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Erreur de Chargement</h1>
+              <p>L'interface n'a pas pu être chargée.</p>
+              <p><strong>Chemins testés:</strong></p>
+              <ul>
+                ${possiblePaths.map(p => `<li><code>${p}</code></li>`).join('')}
+              </ul>
+              <div class="debug">
+                <p><strong>Informations de diagnostic:</strong></p>
+                <p>__dirname: <code>${__dirname}</code></p>
+                <p>resourcesPath: <code>${process.resourcesPath}</code></p>
+                <p>Appuyez sur <strong>F12</strong> pour voir les logs détaillés</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
+    }
   }
 
   // Show window when ready to prevent visual flash
@@ -241,6 +331,29 @@ async function createWindow() {
   // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // 🔍 LISTENERS DE DEBUG POUR LE CHARGEMENT
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('🔴 [ERREUR] Échec du chargement de la page:', {
+      errorCode,
+      errorDescription,
+      URL: mainWindow.webContents.getURL(),
+      __dirname,
+      resourcesPath: process.resourcesPath
+    });
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('✅ [SUCCESS] Page chargée avec succès!', {
+      URL: mainWindow.webContents.getURL(),
+      isDev: process.env.NODE_ENV === 'development'
+    });
+  });
+
+  mainWindow.webContents.on('crashed', () => {
+    console.error('🔴 [CRASH] Le processus de contenu a crashé!');
+    mainWindow.reload();
   });
 
   // Handle window maximize/unmaximize events

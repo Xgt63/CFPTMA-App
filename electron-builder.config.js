@@ -15,6 +15,8 @@ module.exports = {
     'main.js',
     'dist/**/*',
     'electron/**/*',
+    'assets/**/*',
+    'package.json',
     'node_modules/**/*',
     '!node_modules/.cache/**/*',
     '!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,readme}',
@@ -27,6 +29,15 @@ module.exports = {
     '!**/{appveyor.yml,.travis.yml,circle.yml}',
     '!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}'
   ],
+  
+  // ✅ Utiliser asarUnpack pour laisser dist/** en dehors de asar
+  asarUnpack: [
+    'dist/**/*'
+  ],
+  
+  extraMetadata: {
+    main: 'main.js'
+  },
   
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
@@ -43,10 +54,11 @@ module.exports = {
     installerHeaderIcon: 'assets/icon.ico',
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
+    shortcutName: 'CFPT Manager',
     artifactName: '${productName} Setup ${version}.${ext}'
   },
   
-  copyright: ' 2026 CFPT Ivato',
+  copyright: '© 2026 CFPT Ivato',
   compression: 'normal',
   buildDependenciesFromSource: false
 };
